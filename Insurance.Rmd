@@ -1,0 +1,149 @@
+---
+title: "Insurance"
+author: "AfroLogicInsect_MLReview"
+date: "4/25/2022"
+output: html_document
+---
+
+##Load Libraries
+```{r}
+library(tidyverse)
+library(ggplot2)
+```
+
+
+##Load Dataset
+```{r}
+insurance_Df <- read.csv("C:/Users/PC/Documents/R_4DS/Insurance/insurance.csv")
+is.null(insurance_Df) ## No null Values
+```
+
+```{r}
+summary(insurance_Df)
+```
+
+Range of Insurance charges `r min(insurance_Df$charges)` - `r max(insurance_Df$charges)` with and average of `r mean(insurance_Df$charges)`.
+
+```{r}
+library(scales)
+
+ggplot(insurance_Df, 
+       aes(x = sex, 
+           fill = charges)) + 
+  geom_bar(position = "dodge")
+```
+
+```{r}
+ggplot(insurance_Df, 
+       aes(x = region, 
+           fill = charges)) + 
+  geom_bar(position = "dodge")
+```
+
+```{r}
+library(cowplot)
+
+x <- insurance_Df %>% 
+  ggplot( aes(age, charges)) +
+  geom_jitter(color = '#595959', alpha = 0.5) +
+  theme_light()
+
+
+
+y <- insurance_Df %>%  
+  mutate(highlight_flag = ifelse(bmi > 30, T, F)) %>% 
+  ggplot(aes(bmi, charges)) +
+  geom_jitter(aes(color = highlight_flag, alpha = 0.5), show.legend = FALSE) +
+  scale_color_manual(values = c('#595959', 'red')) +
+  theme_light()
+
+p <- plot_grid(x, y)
+title <- ggdraw() + draw_label("1. Correlation between Charges and Age / BMI", fontface='bold')
+plot_grid(title, p, ncol=1, rel_heights=c(0.1, 1))
+```
+
+
+```{r}
+insurance_Df$smoker <- ifelse(insurance_Df$smoker=="yes", 1, 0)
+
+insurance_Df$BMI_Category <- "Underweight"
+insurance_Df$BMI_Category[insurance_Df$bmi >= 18.5 & insurance_Df$bmi <= 24.9] <- "Normal"
+insurance_Df$BMI_Category[insurance_Df$bmi >= 25 & insurance_Df$bmi <= 29.9] <- "Overweight"
+insurance_Df$BMI_Category[insurance_Df$bmi > 30] <- "Obese"
+```
+
+
+TEST/TRAIN SPLIT
+```{r}
+n_train <- round(0.8 * nrow(insurance_Df)) #0.8 of df is Train
+train_indices <- sample(1:nrow(insurance_Df), n_train)
+df_train <- insurance_Df[train_indices, ]
+df_test <- insurance_Df[-train_indices, ]
+```
+
+TRAINING THE MODEL
+(Trail and Error)
+
+```{r}
+lm.fit <- lm(charges ~ age + sex + BMI_Category + children + smoker + region, data = df_train)
+round(summary(lm.fit)$coefficients, 2)
+cat('Adjusted R^2:', round(summary(lm.fit)$adj.r.sq, 2),'   ', 'F-Test:', round(summary(lm.fit)$f, 2))
+```
+
+```{r}
+lm.fit <- lm(charges ~ age + BMI_Category + children + smoker + region, data = df_train)
+round(summary(lm.fit)$coefficients, 2)
+cat('Adjusted R^2:', round(summary(lm.fit)$adj.r.sq, 2),'   ', 'F-Test:', round(summary(lm.fit)$f, 2))
+```
+
+```{r}
+lm.fit <- lm(charges ~ age + BMI_Category + children + smoker + region +smoker*bmi, data = df_train)
+round(summary(lm.fit)$coefficients, 2)
+cat('Adjusted R^2:', round(summary(lm.fit)$adj.r.sq, 2),'   ', 'F-Test:', round(summary(lm.fit)$f, 2))
+```
+
+## Model Evaluation
+
+```{r}
+df_test$prediction <- predict(lm.fit, newdata = df_test)
+
+#Plot 
+ggplot(df_test, aes(x = prediction, y = charges)) +
+  geom_point(color = "green", alpha = 0.7) +
+  geom_abline(color = "red") + 
+  ggtitle("Prediction vs. Actual Values") +
+  theme_light()
+```
+
+```{r}
+#Plotting for residuals
+df_test$residuals <- df_test$charges - df_test$prediction
+
+df_test %>% 
+  mutate(highlight_flag = ifelse(prediction < 20000 & residuals < 5000, T, F)) %>% 
+  ggplot(aes(x = prediction, y = residuals)) +
+  geom_pointrange(aes(ymin = 0, ymax = residuals, 
+                      color = highlight_flag, alpha = 0.5), 
+                  show.legend = FALSE) +
+  scale_color_manual(values = c('#595959', 'green')) +
+  geom_hline(yintercept = 0, linetype = 3, color = "red") +
+  ggtitle("Residuals vs. Linear Model Prediction") +
+  theme_light()
+
+
+  ggplot(aes(bmi, charges)) +
+  geom_jitter(aes(color = highlight_flag, alpha = 0.5)) +
+  scale_color_manual(values = c('red', '#595959'))
+```
+
+
+```{r}
+ggplot(df_test, aes(x = residuals)) +
+  geom_histogram(bins = 15, fill = "green") +
+  ggtitle("Residual Histogram") +
+  theme_light()
+```
+
+
+
+
