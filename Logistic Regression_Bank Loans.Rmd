@@ -395,12 +395,4 @@ main="ROC Curve: SMOTEDistribution")
 # roc_under_p + roc_over_p + roc_both_p + roc_rose_p + roc_smote_p + plot_layout(ncol = 1, heights = c(1, 5))
 ```
 
-```{r}
-library(pROC)
-
-roc_under <- roc(test_set$Loan_Status, y_pred_under)
-ggroc(roc_under)
-
-# figurw
-```
 
